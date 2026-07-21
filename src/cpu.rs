@@ -1,5 +1,4 @@
 pub mod decoding;
-pub mod testing;
 use std::{fs::File, io::{self, BufReader, Read}};
 
 pub struct CPU{
