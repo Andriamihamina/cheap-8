@@ -1,3 +1,5 @@
+pub mod decoding;
+pub mod testing;
 use std::{fs::File, io::{self, BufReader, Read}};
 
 pub struct CPU{
@@ -5,6 +7,7 @@ pub struct CPU{
     v: [u8; 16],
     i: u16,
     sp: u8,
+    pc: u16,
 
     stack: [u16; 16],
 
@@ -38,8 +41,10 @@ impl CPU {
             i: 0,
             sp: 0,
             stack: [0; 16],
+            pc: 0,
             delay_timer: 0,
             sound_timer: 0,
         }
     }
+
 }
