@@ -6,7 +6,7 @@ pub struct CPU{
     i: u16,
     sp: u8,
 
-    stack: [u8; 16],
+    stack: [u16; 16],
 
     delay_timer: u8,
     sound_timer: u8
