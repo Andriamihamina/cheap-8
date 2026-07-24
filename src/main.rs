@@ -1,13 +1,11 @@
-use crate::cpu::CPU;
+use crate::core::{cpu::CPU, io::{self, keyboard::MacroquadKeyboard, screen::VirtualScreen}};
+pub mod core;
 
-pub mod cpu;
+#[macroquad::main("Chip-8")]
 
-fn main() {
-    let mut cpu = CPU::new();
+async fn main() {
+    let mut cpu = CPU::new(MacroquadKeyboard::new(), VirtualScreen::new());
     let is_load_ok =cpu.load_program("C:/Users/sebas/Documents/dev/cheap-8/IBM Logo.ch8");
 
-    match is_load_ok {
-        Ok(_) => println!("Program loaded into memory"),
-        Err(_) => println!("Couldn't load the program into memory")
-    }
+    cpu.run().await;
 }
