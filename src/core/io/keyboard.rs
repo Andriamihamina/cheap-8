@@ -1,4 +1,4 @@
-use macroquad::input::{KeyCode, is_key_pressed};
+use macroquad::input::{KeyCode, is_key_down};
 
 
 pub trait Keyboard {
@@ -69,10 +69,15 @@ impl Keyboard for MacroquadKeyboard {
     
     fn update_state(&mut self) {
         self.pressed_keys = vec![];
+        
         for key in 0..=0xF {
-            let is_key_pressed = is_key_pressed(self.map(key));
+            let is_key_pressed = is_key_down(self.map(key));
 
             if is_key_pressed { self.press_key(key);}
         } 
+
+        if cfg!(debug_assertions) {
+            println!("Pressed keys: {:?}", self.pressed_keys)
+        }
     }
 }
