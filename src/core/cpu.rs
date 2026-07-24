@@ -52,19 +52,32 @@ impl <K: Keyboard, S: Renderer>CPU<K, S> {
     }
 
     pub async fn run(&mut self) {
-        //let interval = Duration::from_nanos(1000);
-        let interval = Duration::from_millis(500);
-        let mut next_tick = Instant::now();
+        let timer_interval = Duration::from_secs_f64(1. / 60.);
+        let mut next_tick = Instant::now() + timer_interval;
+
         loop {
             self.screen.render();
-            self.decode(self.get_instruction(self.pc));
 
-
-            while Instant::now() < next_tick {
-                spin_loop();
+            for _ in 0..10 {
+                self.keyboard.update_state();
+                self.decode(self.get_instruction(self.pc));
             }
 
-            next_tick += interval;
+            let now = Instant::now();
+
+            while now >= next_tick {
+                if self.delay_timer > 0 {
+                    self.delay_timer -= 1;
+                }
+            }
+
+            if self.sound_timer > 0 {
+                self.sound_timer -= 1;
+                //TODO play sound
+            }
+
+            next_tick += timer_interval;
+
             next_frame().await;
             
         }
@@ -140,7 +153,7 @@ impl <K: Keyboard, S: Renderer>CPU<K, S> {
             }
             (1, _, _, _) => {
                 self.jp(nnn);
-                println!("target: {:X}", nnn)
+                //TODO print in debug println!("target: {:X}", nnn)
             } 
             
             (2, _, _, _) => {
