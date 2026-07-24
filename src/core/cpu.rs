@@ -60,9 +60,6 @@ impl <K: Keyboard, S: Renderer>CPU<K, S> {
             self.decode(self.get_instruction(self.pc));
 
 
-            println!("adress: {:X}", self.pc);
-            println!("instruction: {:X}", self.memory[self.pc as usize]);
-            
             while Instant::now() < next_tick {
                 spin_loop();
             }
@@ -88,11 +85,8 @@ impl <K: Keyboard, S: Renderer>CPU<K, S> {
             address+=1;
 
         }
-        println!("Program size{:x}", address - 0x0200);
-        println!("From:{:x}", 0x0200);
-        println!("to: {:x}", address);
 
-        Ok(())
+        Ok(()) //TODO handle exceptions
         
     }
 
