@@ -52,36 +52,40 @@ impl <K: Keyboard, S: Renderer>CPU<K, S> {
     }
 
     pub async fn run(&mut self) {
+        let cpu_interval = Duration::from_secs_f64(1. / 700.);
         let timer_interval = Duration::from_secs_f64(1. / 60.);
-        let mut next_tick = Instant::now() + timer_interval;
+
+        let mut next_cpu = Instant::now();
+        let mut next_timer = Instant::now();
 
         loop {
             self.screen.render();
 
-            for _ in 0..10 {
-                let opcode =
-                ((self.memory[self.pc as usize] as u16) << 8)
-                | self.memory[(self.pc + 1) as usize] as u16;
-
-                self.keyboard.update_state();
-                if opcode != 0 {println!("{:03X}: {:04X}", self.pc, opcode)};
-                self.decode(self.get_instruction(self.pc));
-            }
-
             let now = Instant::now();
 
-            while now >= next_tick {
+            while now >= next_cpu {
+                let opcode = self.get_instruction(self.pc);
+                self.keyboard.update_state();
+                if opcode != 0 && cfg!(debug_assertions){println!("{:03X}: {:04X}", self.pc, opcode)};
+
+                self.decode(opcode);
+
+                next_cpu += cpu_interval;
+            }
+
+            while now >= next_timer {
                 if self.delay_timer > 0 {
                     self.delay_timer -= 1;
                 }
+                if self.sound_timer > 0 {
+                    self.sound_timer -= 1;
+                    //TODO play sound
+                }
+                next_timer += timer_interval;
             }
 
-            if self.sound_timer > 0 {
-                self.sound_timer -= 1;
-                //TODO play sound
-            }
 
-            next_tick += timer_interval;
+
 
             next_frame().await;
             
