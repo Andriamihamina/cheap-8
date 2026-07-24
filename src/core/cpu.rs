@@ -187,8 +187,8 @@ impl <K: Keyboard, S: Renderer>CPU<K, S> {
                 self.step()
             }
 
-            (7, _, _, _) => {
-                self.set_register(x.into(), kk + vx);
+            (7, x, _, _) => {
+                self.set_register(x, kk.wrapping_add(vx));
                 self.step()
             }
 
@@ -373,7 +373,9 @@ impl <K: Keyboard, S: Renderer>CPU<K, S> {
 
     //Cxkk - Vx = random AND kkk
     fn set_register(&mut self, x: u8, value: u8){
-        self.v[usize::from(x)] = value;
+        if x < self.v.len() as u8{
+            self.v[usize::from(x)] = value;
+        }
     }
 
     fn set_memory(&mut self, adress: u16, value: u8) {
@@ -403,7 +405,7 @@ impl <K: Keyboard, S: Renderer>CPU<K, S> {
 
         for (sprite_row, sprite_byte) in buffer.iter().enumerate() {
             for bit in 0..8 {
-                let (x, y) = ((x + bit) % 64, (y + sprite_row as u8) % 32);
+                let (x, y) = ((x.wrapping_add(bit) % 64), (y.wrapping_add(sprite_row as u8) % 32));
 
                 let sprite_bit = ((sprite_byte >> (7 - bit)) & 1) != 0;
 
