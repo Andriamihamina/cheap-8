@@ -40,7 +40,7 @@ impl <K: Keyboard, S: Renderer>CPU<K, S> {
             0xF0, 0x80, 0xF0, 0x80, 0x80
         ];
 
-        self.memory[..fonts.len()].copy_from_slice(&fonts);
+        self.memory[0x50..(0x50 + fonts.len())].copy_from_slice(&fonts);
     }
 
     fn get_instruction(&self, location: u16) -> u16{
@@ -290,7 +290,34 @@ impl <K: Keyboard, S: Renderer>CPU<K, S> {
             }
 
             (0xF, _, 2, 9) => {
-                self.i = (vx as u16) * 5; //TODO move font base to 0x50
+                self.i = (vx as u16) * 5 + 0x50;
+                self.step()
+            }
+
+            (0xF, _, 3, 3) => {
+                self.set_memory(self.i, (vx / 100) % 10);
+                self.set_memory(self.i + 1, (vx / 10) % 10);
+                self.set_memory(self.i + 2, vx  % 10);
+                self.step()
+            }
+
+            (0xF, _, 5, 5) => {
+
+                for i in 0..=x {
+                    self.set_memory(self.i + i as u16, self.get_register(i));
+                }
+
+                self.step()
+            }
+
+            (0xF, _, 6, 5) => {
+
+                let mut adress = self.i as u16;
+                for i in 0..=x {
+                    self.set_register(i, self.get_memory(adress));
+                    adress += 1;
+                }
+
                 self.step()
             }
 
