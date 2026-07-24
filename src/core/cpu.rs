@@ -59,7 +59,12 @@ impl <K: Keyboard, S: Renderer>CPU<K, S> {
             self.screen.render();
 
             for _ in 0..10 {
+                let opcode =
+                ((self.memory[self.pc as usize] as u16) << 8)
+                | self.memory[(self.pc + 1) as usize] as u16;
+
                 self.keyboard.update_state();
+                if opcode != 0 {println!("{:03X}: {:04X}", self.pc, opcode)};
                 self.decode(self.get_instruction(self.pc));
             }
 
@@ -137,7 +142,7 @@ impl <K: Keyboard, S: Renderer>CPU<K, S> {
         let vy = self.get_register(y);
 
         let nnn = opcode & 0x0FFF;
-        let kk = opcode & 0x00FF;
+        let kk = (opcode & 0x00FF) as u8;
         
 
 
@@ -153,7 +158,7 @@ impl <K: Keyboard, S: Renderer>CPU<K, S> {
             }
             (1, _, _, _) => {
                 self.jp(nnn);
-                //TODO print in debug println!("target: {:X}", nnn)
+                println!("target: {:X}", nnn)
             } 
             
             (2, _, _, _) => {
@@ -161,29 +166,29 @@ impl <K: Keyboard, S: Renderer>CPU<K, S> {
             }
 
             (3, _, _, _) => { // 3xkk skip if Vx == kk
-                self.skip_equal(vx as u16, kk);
+                self.skip_equal(vx, kk);
                 println!("vx: {:?}, kk: {:?}", vx, kk);
                 self.step()
             }
 
             (4, _, _, _) => { // skip if vx != kk
-                self.skip_not_equal(vx as u16, kk);
+                self.skip_not_equal(vx, kk);
                 self.step()
             }
 
             (5, _,  _, _) => {// Skip if vx == vy
-                self.skip_equal(self.get_register(x.into()) as u16, self.get_register(y.into()) as u16);
+                self.skip_equal(self.get_register(x.into()), self.get_register(y.into()));
                 self.step()
 
             }
 
             (6, _, _, _) => {//
-                self.set_register(x.into(), kk as u8);
+                self.set_register(x.into(), kk);
                 self.step()
             }
 
             (7, _, _, _) => {
-                self.set_register(x.into(), (kk + vx as u16) as u8);
+                self.set_register(x.into(), kk + vx);
                 self.step()
             }
 
@@ -204,7 +209,10 @@ impl <K: Keyboard, S: Renderer>CPU<K, S> {
                 self.step()
             }
             (8, _, _, 4) => {
-                self.set_register(x.into(), vx + vy);
+                let (result, carry) = vx.overflowing_add(vy);
+                self.set_register(x.into(), result);
+                self.set_register(0xF, if  carry { 1 } else {0});
+
                 self.step()
             }
             (8, _, _, 5) => {
@@ -224,12 +232,12 @@ impl <K: Keyboard, S: Renderer>CPU<K, S> {
 
             }
             (8, _, _, 0xE) => {
-                self.set_register(0xF, vx & 0x1);
+                self.set_register(0xF, (vx >> 7) & 1);
                 self.set_register(x.into(), vx << 1);
                 self.step()
             }
             (9, _, _, 0) => {
-                self.skip_not_equal(vx as u16, vy as u16);
+                self.skip_not_equal(vx, vy);
                 self.step()
             }
             (0xA, _, _, _) => {
@@ -241,7 +249,7 @@ impl <K: Keyboard, S: Renderer>CPU<K, S> {
             }
             (0xC, x, _, _) => {
                 let nb = rand::random_range(0..=255);
-                self.set_register(x, x & nb);
+                self.set_register(x, nb & kk);
                 self.step()
             }
 
@@ -269,7 +277,10 @@ impl <K: Keyboard, S: Renderer>CPU<K, S> {
 
             (0xF, x, 0, 0xA) => {
                 match self.keyboard.wait_key_press() {
-                    Some(key) => { self.set_register(x, key);}
+                    Some(key) => { 
+                        self.set_register(x, key);
+                        self.step();
+                    }
                     None => ()
                 }
             }
@@ -346,13 +357,13 @@ impl <K: Keyboard, S: Renderer>CPU<K, S> {
         self.pc = nnn;
     }
 
-    fn skip_equal(&mut self, a: u16, b: u16){//TODO unit test
+    fn skip_equal(&mut self, a: u8, b: u8){//TODO unit test
         if a == b { self.step()} //TODO maybe increment by 1 if it's not same
     }
 
     //4xkk SNE Vx, byte
     //9xy0 SNE Vx, Vy
-    fn skip_not_equal(&mut self, a: u16, b: u16){
+    fn skip_not_equal(&mut self, a: u8, b: u8){
         if a != b { self. pc += 2}
     }
 
@@ -363,6 +374,14 @@ impl <K: Keyboard, S: Renderer>CPU<K, S> {
     //Cxkk - Vx = random AND kkk
     fn set_register(&mut self, x: u8, value: u8){
         self.v[usize::from(x)] = value;
+    }
+
+    fn set_memory(&mut self, adress: u16, value: u8) {
+        self.memory[usize::from(adress)] = value;
+    }
+
+    fn get_memory(&self, adress: u16) -> u8 {
+        self.memory[usize::from(adress)]
     }
     
     
@@ -448,7 +467,7 @@ use super::*;
 
     }
 
-    /*#[test]
+    #[test]
     fn test_dxyn() {//TODO test more cases. Wrapping around etc
         let mut cpu = CPU::new(MacroquadKeyboard::new(), MacroquadRenderer::new());
         let opcode = 0xD001;
@@ -460,9 +479,9 @@ use super::*;
         cpu.decode(opcode);
 
         let expected_pixels = [true; 8];
-        let screen_pixels = array::from_fn(|x| cpu.screen.get_pixel((x as u8,0)));
+        let screen_pixels = std::array::from_fn(|x| cpu.screen.get_pixel((x as u8,0)));
         assert_eq!(expected_pixels, screen_pixels);
-    }*/
+    }
 
     #[test]
     fn test_se(){
@@ -506,6 +525,26 @@ use super::*;
         cpu.set_register(4, 1);
         cpu.decode(opcode);
         assert_eq!(cpu.get_register(4), 0x64 + 1);
+    }
+
+    #[test]
+    fn test_8xy4() {
+        let mut cpu = CPU::new(MacroquadKeyboard::new(), MacroquadRenderer::new());
+        let opcode = 0x8454;
+
+        cpu.set_register(4, 0xFF);
+        cpu.set_register(5, 1);
+        cpu.set_register(0xF, 0);
+
+        cpu.decode(opcode);
+
+        assert_eq!(cpu.get_register(0xF), 1);
+
+        cpu.set_register(4, 1);
+        cpu.set_register(5, 1);
+        cpu.set_register(0xF, 0);
+
+        assert_eq!(cpu.get_register(0xF), 0);
     }
 
     #[test]
@@ -588,12 +627,12 @@ use super::*;
         cpu.set_register(4, 0x11);// 0x11 = 0001 0001
         cpu.decode(opcode);//                        0001 0001 << 1
         assert_eq!(cpu.get_register(4), 0x22);//     0010 0010
-        assert_eq!(cpu.get_register(0xF), 1);
-
-        cpu.set_register(4, 0x10);// 0x10 = 0001 0000
-        cpu.decode(opcode);//                        0001 0000 << 1
-        assert_eq!(cpu.get_register(4), 0x20);//     0010 0000
         assert_eq!(cpu.get_register(0xF), 0);
+
+        cpu.set_register(4, 0x80);// 0x10 = 1000 0000
+        cpu.decode(opcode);//                        1000 0000 << 1
+        assert_eq!(cpu.get_register(4), 0);//        0000 0000
+        assert_eq!(cpu.get_register(0xF), 1);
     }
 
     #[test]
@@ -633,5 +672,53 @@ use super::*;
         assert_eq!(cpu.pc, 0x246);
     }
 
+    #[test]
+    fn test_fx33(){
+        let mut cpu= CPU::new(MacroquadKeyboard::new(), MacroquadRenderer::new());
+        let opcode: u16 = 0xF433;
+
+        cpu.set_register(4, 128);
+        cpu.i = 0x505;
+        cpu.decode(opcode);
+        assert_eq!(cpu.get_memory(cpu.i), 1);
+        assert_eq!(cpu.get_memory(cpu.i + 1), 2);
+        assert_eq!(cpu.get_memory(cpu.i + 2), 8);
+    }
+
+    #[test]
+    fn test_fx55(){
+        let mut cpu= CPU::new(MacroquadKeyboard::new(), MacroquadRenderer::new());
+        let opcode: u16 = 0xF355;
+
+        cpu.set_register(0, 0);
+        cpu.set_register(1, 1);
+        cpu.set_register(2, 2);
+        cpu.set_register(3, 3);
+
+        cpu.i = 0x205;
+        cpu.decode(opcode);
+        for i in 0..4{
+            assert_eq!(i, cpu.get_memory(cpu.i + i as u16));
+        }
+    }
+
+
+    #[test]
+    fn test_fx65(){
+        let mut cpu= CPU::new(MacroquadKeyboard::new(), MacroquadRenderer::new());
+        let opcode: u16 = 0xF365;
+
+        cpu.i = 0x205;
+        let start_adress = usize::from(cpu.i);
+
+        cpu.memory[start_adress] = 0;
+        cpu.memory[start_adress + 1] = 1;
+        cpu.memory[start_adress + 2] = 2;
+        cpu.memory[start_adress + 3] = 3;
+        cpu.decode(opcode);
+        for i in 0..=3{
+            assert_eq!(i, cpu.get_register(i));
+        }
+    }
     
 } 
