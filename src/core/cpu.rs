@@ -400,7 +400,7 @@ impl <K: Keyboard, S: Renderer>CPU<K, S> {
         let x = self.get_register(x);
         let y = self.get_register(y);
 
-        self.set_register(0xF, 1);
+        self.set_register(0xF, 0);
 
 
         for (sprite_row, sprite_byte) in buffer.iter().enumerate() {
