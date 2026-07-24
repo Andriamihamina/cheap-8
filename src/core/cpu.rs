@@ -1,9 +1,9 @@
 use std::{fs::File, hint::spin_loop, io::{self, BufReader, Read}, time::{Duration, Instant}};
-use macroquad::{color::{BLACK, WHITE}, input::{KeyCode::Enter, is_key_down}, shapes::draw_rectangle, window::next_frame};
+use macroquad::{window::next_frame};
 
-use crate::core::io::{keyboard::Keyboard, screen::Screen};
+use crate::core::io::{keyboard::Keyboard, screen::Renderer};
 
-pub struct CPU<K: Keyboard, S: Screen>{
+pub struct CPU<K: Keyboard, S: Renderer>{
     memory: [u8; 4096],
     v: [u8; 16],
     i: u16,
@@ -18,7 +18,7 @@ pub struct CPU<K: Keyboard, S: Screen>{
     
 }
 
-impl <K: Keyboard, S: Screen>CPU<K, S> {
+impl <K: Keyboard, S: Renderer>CPU<K, S> {
 
     fn load_fonts(&mut self) {
         let fonts: [u8; 16*5] = [
@@ -375,13 +375,13 @@ impl <K: Keyboard, S: Screen>CPU<K, S> {
 #[cfg(test)]
 mod test{
 
-use crate::core::io::{keyboard::MacroquadKeyboard, screen::{VirtualScreen}};
+use crate::core::io::{keyboard::MacroquadKeyboard, screen::{MacroquadRenderer}};
 
 use super::*;
 
     #[test]
     fn test_ret(){
-        let mut cpu = CPU::new(MacroquadKeyboard::new(), VirtualScreen::new());
+        let mut cpu = CPU::new(MacroquadKeyboard::new(), MacroquadRenderer::new());
         cpu.stack = std::array::from_fn(|i| i as u16); 
         cpu.sp = 5;
         cpu.ret();
@@ -393,7 +393,7 @@ use super::*;
 
     #[test]
     fn test_jp(){
-        let mut cpu = CPU::new(MacroquadKeyboard::new(), VirtualScreen::new());
+        let mut cpu = CPU::new(MacroquadKeyboard::new(), MacroquadRenderer::new());
         let target = 0x0400u16;
         cpu.jp(target);
         assert_eq!(cpu.pc, target)
@@ -401,7 +401,7 @@ use super::*;
 
     #[test]
     fn test_call(){
-        let mut cpu = CPU::new(MacroquadKeyboard::new(), VirtualScreen::new());
+        let mut cpu = CPU::new(MacroquadKeyboard::new(), MacroquadRenderer::new());
         let nnn = 7;
         cpu.stack = std::array::from_fn(|i| if  i <= 5 {i as u16} else {0}); //[0, 1, 2, 3, 4, 5, 0, 0, ...]
         cpu.sp = 5;
@@ -416,7 +416,7 @@ use super::*;
 
     /*#[test]
     fn test_dxyn() {//TODO test more cases. Wrapping around etc
-        let mut cpu = CPU::new(MacroquadKeyboard::new(), VirtualScreen::new());
+        let mut cpu = CPU::new(MacroquadKeyboard::new(), MacroquadRenderer::new());
         let opcode = 0xD001;
         cpu.memory[512usize] = 0xFF; 
         cpu.v[0] = 0;
@@ -432,7 +432,7 @@ use super::*;
 
     #[test]
     fn test_se(){
-        let mut cpu = CPU::new(MacroquadKeyboard::new(), VirtualScreen::new());
+        let mut cpu = CPU::new(MacroquadKeyboard::new(), MacroquadRenderer::new());
         cpu.set_register(5, 0x66);
         cpu.decode(0x3566);
         assert_eq!(cpu.pc, 0x200 + 4);
@@ -445,7 +445,7 @@ use super::*;
 
     #[test]
     fn test_sne() {
-        let mut cpu = CPU::new(MacroquadKeyboard::new(), VirtualScreen::new());
+        let mut cpu = CPU::new(MacroquadKeyboard::new(), MacroquadRenderer::new());
         cpu.set_register(5, 0x66);
         cpu.decode(0x4566);
         assert_eq!(cpu.pc, 0x200 + 2);
@@ -458,7 +458,7 @@ use super::*;
 
     #[test]
     fn test_6xnn() {
-        let mut cpu = CPU::new(MacroquadKeyboard::new(), VirtualScreen::new());
+        let mut cpu = CPU::new(MacroquadKeyboard::new(), MacroquadRenderer::new());
         let opcode = 0x6464;
         cpu.decode(opcode);
         assert_eq!(cpu.get_register(4), 0x64);
@@ -466,7 +466,7 @@ use super::*;
 
     #[test]
     fn test_7xnn() {
-        let mut cpu = CPU::new(MacroquadKeyboard::new(), VirtualScreen::new());
+        let mut cpu = CPU::new(MacroquadKeyboard::new(), MacroquadRenderer::new());
         let opcode = 0x7464;
 
         cpu.set_register(4, 1);
@@ -476,7 +476,7 @@ use super::*;
 
     #[test]
     fn test_8xy5_no_underflow() {
-        let mut cpu = CPU::new(MacroquadKeyboard::new(), VirtualScreen::new());
+        let mut cpu = CPU::new(MacroquadKeyboard::new(), MacroquadRenderer::new());
         let opcode = 0x8455;
 
         cpu.set_register(4, 5);
@@ -490,7 +490,7 @@ use super::*;
 
     #[test]
     fn test_8xy5_with_underflow() {
-        let mut cpu = CPU::new(MacroquadKeyboard::new(), VirtualScreen::new());
+        let mut cpu = CPU::new(MacroquadKeyboard::new(), MacroquadRenderer::new());
         let opcode = 0x8455;
 
         cpu.set_register(4, 4);
@@ -504,7 +504,7 @@ use super::*;
 
     #[test]
     fn test_8xy6(){
-        let mut cpu= CPU::new(MacroquadKeyboard::new(), VirtualScreen::new());
+        let mut cpu= CPU::new(MacroquadKeyboard::new(), MacroquadRenderer::new());
         let opcode: u16 = 0x8456;
 
         cpu.set_register(4, 0xE1);//0xE1 = 1110 0001
@@ -520,7 +520,7 @@ use super::*;
 
     #[test]
     fn test_8xy7_no_underflow() {
-        let mut cpu = CPU::new(MacroquadKeyboard::new(), VirtualScreen::new());
+        let mut cpu = CPU::new(MacroquadKeyboard::new(), MacroquadRenderer::new());
         let opcode = 0x8457;
 
         cpu.set_register(4, 4);
@@ -534,7 +534,7 @@ use super::*;
 
     #[test]
     fn test_8xy7_with_underflow() {
-        let mut cpu = CPU::new(MacroquadKeyboard::new(), VirtualScreen::new());
+        let mut cpu = CPU::new(MacroquadKeyboard::new(), MacroquadRenderer::new());
         let opcode = 0x8457;
 
         cpu.set_register(4, 5);
@@ -548,7 +548,7 @@ use super::*;
 
     #[test]
     fn test_8xye(){
-        let mut cpu= CPU::new(MacroquadKeyboard::new(), VirtualScreen::new());
+        let mut cpu= CPU::new(MacroquadKeyboard::new(), MacroquadRenderer::new());
         let opcode: u16 = 0x845E;
 
         cpu.set_register(4, 0x11);// 0x11 = 0001 0001
@@ -564,7 +564,7 @@ use super::*;
 
     #[test]
     fn test_9xy0(){
-        let mut cpu= CPU::new(MacroquadKeyboard::new(), VirtualScreen::new());
+        let mut cpu= CPU::new(MacroquadKeyboard::new(), MacroquadRenderer::new());
         let opcode: u16 = 0x9430;
 
         cpu.set_register(4, 5);
@@ -582,7 +582,7 @@ use super::*;
 
     #[test]
     fn test_annn(){
-        let mut cpu= CPU::new(MacroquadKeyboard::new(), VirtualScreen::new());
+        let mut cpu= CPU::new(MacroquadKeyboard::new(), MacroquadRenderer::new());
         let opcode: u16 = 0xA245;
 
         cpu.decode(opcode);
@@ -591,7 +591,7 @@ use super::*;
 
     #[test]
     fn test_bnnn(){
-        let mut cpu= CPU::new(MacroquadKeyboard::new(), VirtualScreen::new());
+        let mut cpu= CPU::new(MacroquadKeyboard::new(), MacroquadRenderer::new());
         let opcode: u16 = 0xB245;
 
         cpu.set_register(0, 1);
