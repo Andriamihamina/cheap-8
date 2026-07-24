@@ -5,7 +5,7 @@ pub mod core;
 
 async fn main() {
     let mut cpu = CPU::new(MacroquadKeyboard::new(), MacroquadRenderer::new());
-    let is_load_ok =cpu.load_program("C:/Users/sebas/Documents/dev/cheap-8/IBM Logo.ch8");
+    let is_load_ok =cpu.load_program("C:/Users/sebas/Documents/dev/cheap-8/br8kout.ch8");
 
     cpu.run().await;
 }
